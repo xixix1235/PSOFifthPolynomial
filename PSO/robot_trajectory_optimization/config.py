@@ -1,6 +1,8 @@
 # config.py
 import numpy as np
-
+import sys
+# 屏蔽 roboticstoolbox 的 icra2021 示例导入
+sys.modules['roboticstoolbox.examples.icra2021'] = None
 # 关节参数配置
 JOINT_NUM = 6
 JOINT_LIMITS = [

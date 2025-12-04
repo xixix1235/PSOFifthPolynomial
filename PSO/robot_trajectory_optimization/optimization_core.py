@@ -1,7 +1,5 @@
 # optimization_core.py
 import numpy as np
-from roboticstoolbox.examples.icra2021 import obstacle
-
 from config import PSO_CONFIG, TRAJECTORY_CONFIG, JOINT_NUM
 from trajectory_generator import TrajectoryGenerator
 from constraints import ConstraintChecker

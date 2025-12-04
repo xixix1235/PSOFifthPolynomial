@@ -117,8 +117,9 @@ class TrajectoryGenerator:
         joint_angles_all = np.zeros(9)
         joint_angles_all[1:7] = [j1, j2, j3, j4, j5, j6]
 
-        tcp_matrix = self.assemble_robot.forward_kinematics(joint_angles_all)
-        tcp_position = tcp_matrix[:3, 3]
+        tcp_matrix = self.assemble_robot.fkine(joint_angles_all)
+        tcp_matrix_np = tcp_matrix.A
+        tcp_position = tcp_matrix_np[:3, 3]
         # 基座变换
         tcp_position_vc = self.r_base @ tcp_position + BASE_TRANSLATION
         return tcp_position_vc
