@@ -8,6 +8,20 @@ class ConstraintChecker:
         self.velocity_limits = VELOCITY_LIMITS
         self.sample_points = TRAJECTORY_CONFIG["sample_points"]
 
+    def check_obstacle_constraints(self, positions):
+        """检查所有采样点是否满足Z < 1000，返回惩罚值"""
+        penalty = 0
+        violation_count = 0
+        z_threshold = 1000  # 避障阈值
+
+        for pos in positions:
+            x, y, z = pos
+            if z >= z_threshold:
+                over_distance = z - z_threshold
+                penalty += 1e4 * (over_distance + 1)
+                violation_count += 1
+        return penalty, violation_count
+
     def check_joint_constraints(self, angles):
         """检查关节角度约束，返回惩罚值"""
         penalty = 0

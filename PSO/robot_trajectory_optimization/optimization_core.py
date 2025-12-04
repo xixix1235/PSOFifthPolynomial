@@ -1,5 +1,7 @@
 # optimization_core.py
 import numpy as np
+from roboticstoolbox.examples.icra2021 import obstacle
+
 from config import PSO_CONFIG, TRAJECTORY_CONFIG, JOINT_NUM
 from trajectory_generator import TrajectoryGenerator
 from constraints import ConstraintChecker
@@ -14,7 +16,8 @@ class PSOOptimizer:
         # PSO参数
         self.n_particles = PSO_CONFIG["n_particles"]
         self.max_iter = PSO_CONFIG["max_iter"]
-        self.dim = (self.num_segments - 1) * 6 + self.num_segments  # 粒子维度
+        #中间点角度+每段时间成本
+        self.dim = (self.num_segments - 1) * 6 + self.num_segments
 
     def _load_csv_data(self):
         """加载CSV中的原始轨迹数据"""
@@ -78,11 +81,13 @@ class PSOOptimizer:
         t_total = sum(particle[:self.num_segments])
         t_samples = np.linspace(0, t_total, TRAJECTORY_CONFIG["sample_points"])
         angles = np.array([self.trajectory_gen.polynomial_trajectory(particle, t) for t in t_samples])
+        positions=np.array([self.trajectory_gen.forward_kinematics(angle) for angle in angles]);
 
         # 约束惩罚
         joint_penalty, _ = self.constraint_checker.check_joint_constraints(angles)
         vel_penalty, _ = self.constraint_checker.check_velocity_constraints(angles, t_samples)
-        total_constraint_penalty = joint_penalty + vel_penalty
+        obstacle_penalty,_=self.constraint_checker.check_obstacle_constraints(positions)
+        total_constraint_penalty = joint_penalty + vel_penalty+obstacle_penalty
 
         # 时间惩罚（总时间越短越好）
         time_penalty = sum(particle[:self.num_segments])
