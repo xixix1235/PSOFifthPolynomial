@@ -79,7 +79,10 @@ class PSOOptimizer:
         t_total = sum(particle[:self.num_segments])
         t_samples = np.linspace(0, t_total, TRAJECTORY_CONFIG["sample_points"])
         angles = np.array([self.trajectory_gen.polynomial_trajectory(particle, t) for t in t_samples])
-        positions=np.array([self.trajectory_gen.forward_kinematics(angle) for angle in angles]);
+        positions = np.array([
+            self.trajectory_gen.forward_kinematics(angle).detach().cpu()
+            for angle in angles
+        ])
 
         # 约束惩罚
         joint_penalty, _ = self.constraint_checker.check_joint_constraints(angles)
