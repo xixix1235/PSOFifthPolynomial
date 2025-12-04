@@ -1,6 +1,14 @@
 # config.py
 import numpy as np
 import sys
+# 屏蔽设备配置
+USE_GPU = False
+try:
+    import torch
+    USE_GPU = torch.cuda.is_available()
+except ImportError:
+    pass
+
 # 屏蔽 roboticstoolbox 的 icra2021 示例导入
 sys.modules['roboticstoolbox.examples.icra2021'] = None
 # 关节参数配置
@@ -25,7 +33,7 @@ VELOCITY_LIMITS = [
 # PSO优化参数
 PSO_CONFIG = {
     "n_particles": 50,
-    "max_iter": 500,
+    "max_iter": 100,
     "w_max": 1.2,
     "w_min": 0.2,
     "c1_max": 2.0,

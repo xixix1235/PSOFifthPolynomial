@@ -1,10 +1,14 @@
 # trajectory_generator.py
 import numpy as np
 from spatialmath import SE3
-# from roboticstoolbox.robot import Chain
 from roboticstoolbox import ERobot
+from config import JOINT_NUM, TRAJECTORY_CONFIG, URDF_PATH, BASE_ROTATION, BASE_TRANSLATION, USE_GPU
 
-from config import JOINT_NUM, TRAJECTORY_CONFIG, URDF_PATH, BASE_ROTATION, BASE_TRANSLATION
+try:
+    import torch
+except ImportError:
+    torch = None
+
 
 class TrajectoryGenerator:
     def __init__(self, start_point, end_point):
@@ -13,10 +17,18 @@ class TrajectoryGenerator:
         self.num_segments = TRAJECTORY_CONFIG["num_segments"]
         self.prev_coeffs = []  # 保存每段多项式系数
         self._load_robot_urdf()
+        self.use_gpu = USE_GPU and torch is not None
+
+        # 转换基座变换为张量（如果使用GPU）
+        if self.use_gpu:
+            self.r_base_tensor = torch.tensor(self.r_base, dtype=torch.float32, device='cuda')
+            self.base_translation_tensor = torch.tensor(BASE_TRANSLATION, dtype=torch.float32, device='cuda')
+        else:
+            self.r_base_tensor = None
+            self.base_translation_tensor = None
 
     def _load_robot_urdf(self):
         """加载URDF模型，初始化正运动学链"""
-        # self.assemble_robot = Chain.from_urdf_file(URDF_PATH)
         self.assemble_robot = ERobot.URDF(URDF_PATH)
         # 基座旋转矩阵
         self.r_base = SE3.Rz(BASE_ROTATION).R
@@ -38,12 +50,12 @@ class TrajectoryGenerator:
             # 确定当前段起止关节角度
             if seg == 0:
                 q_start = self.start_point
-                q_end = np.radians(particles[self.num_segments:self.num_segments+6])
+                q_end = np.radians(particles[self.num_segments:self.num_segments + 6])
             elif seg == self.num_segments - 1:
-                q_start = np.radians(particles[self.num_segments:self.num_segments+6])
+                q_start = np.radians(particles[self.num_segments:self.num_segments + 6])
                 q_end = self.end_point
             else:
-                q_start = np.radians(particles[self.num_segments:self.num_segments+6])
+                q_start = np.radians(particles[self.num_segments:self.num_segments + 6])
                 q_end = np.radians(particles[-6:])
 
             self.prev_coeffs.append(self.calculate_segment_coeffs(q_start, q_end, T, seg))
@@ -58,8 +70,8 @@ class TrajectoryGenerator:
         for j in range(JOINT_NUM):
             coeff = coeffes[j]
             angles[j] = (
-                coeff[0] * tau**5 + coeff[1] * tau**4 + coeff[2] * tau**3 +
-                coeff[3] * tau**2 + coeff[4] * tau + coeff[5]
+                    coeff[0] * tau ** 5 + coeff[1] * tau ** 4 + coeff[2] * tau ** 3 +
+                    coeff[3] * tau ** 2 + coeff[4] * tau + coeff[5]
             )
         return angles
 
@@ -72,9 +84,9 @@ class TrajectoryGenerator:
                 [0, 0, 0, 0, 0, 1],
                 [0, 0, 0, 0, 1, 0],
                 [0, 0, 0, 2, 0, 0],
-                [T**5, T**4, T**3, T**2, T, 1],
-                [5*T**4, 4*T**3, 3*T**2, 2*T, 1, 0],
-                [20*T**3, 12*T**2, 6*T, 2, 0, 0]
+                [T ** 5, T ** 4, T ** 3, T ** 2, T, 1],
+                [5 * T ** 4, 4 * T ** 3, 3 * T ** 2, 2 * T, 1, 0],
+                [20 * T ** 3, 12 * T ** 2, 6 * T, 2, 0, 0]
             ])
 
             # 确定边界条件
@@ -101,18 +113,24 @@ class TrajectoryGenerator:
         if not self.prev_coeffs:
             return 0
         coeff = self.prev_coeffs[-1][joint_idx]
-        return 5*coeff[0]*T**4 + 4*coeff[1]*T**3 + 3*coeff[2]*T**2 + 2*coeff[3]*T + coeff[4]
+        return 5 * coeff[0] * T ** 4 + 4 * coeff[1] * T ** 3 + 3 * coeff[2] * T ** 2 + 2 * coeff[3] * T + coeff[4]
 
     def _calc_prev_acceleration(self, joint_idx, T):
         """计算前一段的末端加速度"""
         if not self.prev_coeffs:
             return 0
         coeff = self.prev_coeffs[-1][joint_idx]
-        return 20*coeff[0]*T**3 + 12*coeff[1]*T**2 + 6*coeff[2]*T + 2*coeff[3]
+        return 20 * coeff[0] * T ** 3 + 12 * coeff[1] * T ** 2 + 6 * coeff[2] * T + 2 * coeff[3]
 
     def forward_kinematics(self, q):
         """正运动学：输入关节角度，输出TCP位置"""
-        j1, j2, j3, j4, j5, j6 = q
+        # 如果是torch张量，转换为numpy进行机器人库计算（大多数机器人库不支持GPU）
+        if self.use_gpu and isinstance(q, torch.Tensor):
+            q_np = q.cpu().numpy()
+        else:
+            q_np = q
+
+        j1, j2, j3, j4, j5, j6 = q_np
         j3 += j2  # 关节3补偿
         joint_angles_all = np.zeros(9)
         joint_angles_all[1:7] = [j1, j2, j3, j4, j5, j6]
@@ -122,4 +140,8 @@ class TrajectoryGenerator:
         tcp_position = tcp_matrix_np[:3, 3]
         # 基座变换
         tcp_position_vc = self.r_base @ tcp_position + BASE_TRANSLATION
+
+        # 如果使用GPU，转换回张量
+        if self.use_gpu:
+            return torch.tensor(tcp_position_vc, dtype=torch.float32, device='cuda')
         return tcp_position_vc

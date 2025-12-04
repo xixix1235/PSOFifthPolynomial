@@ -5,9 +5,9 @@ from trajectory_generator import TrajectoryGenerator
 
 def main():
     # 配置参数
-    CSV_PATH = "robot_trajectory.csv"
-    START_POINT = [0, 0, 0, 0, 0, 0]       # 起始关节角度（度）
-    END_POINT = [90, 45, 0, 0, 0, 0]       # 终止关节角度（度）
+    CSV_PATH = r"robot_trajectory.csv"
+    START_POINT = [-94.55, 34.66, -52.71, 5.70, 57.90, -93.45]       # 起始关节角度（度）
+    END_POINT = [-110.58, 70.08, -35.55, -76.97, 72.49, 52.44]       # 终止关节角度（度）
 
     # 初始化优化器并执行优化
     optimizer = PSOOptimizer(CSV_PATH, START_POINT, END_POINT)

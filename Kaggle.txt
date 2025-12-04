@@ -1,0 +1,5 @@
+rm -r /kaggle/working/*
+cp -r /kaggle/input/pso-data/PSO/robot_trajectory_optimization/ /kaggle//working/
+!pip install spatialmath-python -i https://pypi.tuna.tsinghua.edu.cn/simple
+!pip install roboticstoolbox-python -i https://pypi.tuna.tsinghua.edu.cn/simple
+!python /kaggle/working/robot_trajectory_optimization/main.py
